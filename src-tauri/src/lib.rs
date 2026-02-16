@@ -3,6 +3,7 @@ mod config;
 mod providers;
 mod safety;
 mod sync_engine;
+pub mod tray;
 mod watcher;
 
 #[tauri::command]
