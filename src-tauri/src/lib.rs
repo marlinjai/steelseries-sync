@@ -12,8 +12,9 @@ use providers::hosted::HostedProvider;
 use providers::SyncProvider;
 use std::sync::Arc;
 use sync_engine::SyncEngine;
-use tauri::State;
+use tauri::{Emitter, Manager, State};
 use tokio::sync::Mutex;
+use watcher::ConfigWatcher;
 
 struct AppState {
     engine: Arc<SyncEngine>,
@@ -108,6 +109,9 @@ pub fn run() {
     let provider = build_provider(&config);
     let engine = Arc::new(SyncEngine::new(config.clone(), provider));
 
+    let watcher_config_dir = config.steelseries_db_path.clone();
+    let watcher_debounce = config.debounce_secs;
+
     let app_state = AppState {
         engine,
         config: Mutex::new(config),
@@ -125,6 +129,44 @@ pub fn run() {
             save_config,
             restore_backup,
         ])
+        .setup(move |app| {
+            // Set up system tray
+            let _ = tray::setup_tray(app.handle());
+
+            // Spawn file watcher thread
+            let app_handle = app.handle().clone();
+            let engine = app.state::<AppState>().engine.clone();
+
+            std::thread::spawn(move || {
+                let watcher = ConfigWatcher::new(watcher_config_dir, watcher_debounce);
+                let _ = watcher.watch(move |changed| {
+                    log::info!("Config change detected at {:?}", changed.timestamp);
+                    let _ = app_handle.emit("sync-status", "syncing");
+
+                    let engine = engine.clone();
+                    let handle = app_handle.clone();
+                    // Use a tokio runtime to run the async push
+                    let rt = tokio::runtime::Builder::new_current_thread()
+                        .enable_all()
+                        .build();
+                    if let Ok(rt) = rt {
+                        let result = rt.block_on(engine.push_to_remote());
+                        match result {
+                            Ok(r) => {
+                                log::info!("Auto-push result: {:?}", r);
+                                let _ = handle.emit("sync-status", format!("{:?}", r));
+                            }
+                            Err(e) => {
+                                log::error!("Auto-push error: {}", e);
+                                let _ = handle.emit("sync-status", format!("error: {}", e));
+                            }
+                        }
+                    }
+                });
+            });
+
+            Ok(())
+        })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
