@@ -1,5 +1,6 @@
 import { useState } from "react";
 import Status from "./pages/Status";
+import Settings from "./pages/Settings";
 import "./App.css";
 
 type Tab = "status" | "settings" | "backups";
@@ -32,7 +33,7 @@ function App() {
 
       <main className="content">
         {activeTab === "status" && <Status />}
-        {activeTab === "settings" && <div className="page"><h2>Settings</h2><p>Coming soon...</p></div>}
+        {activeTab === "settings" && <Settings />}
         {activeTab === "backups" && <div className="page"><h2>Backups</h2><p>Coming soon...</p></div>}
       </main>
     </div>
