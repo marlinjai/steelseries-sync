@@ -5,12 +5,15 @@ import {
   Body,
   Req,
   UploadedFiles,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { JwtAuthGuard } from '../auth/auth.guard';
 import { SyncService } from './sync.service';
 
 @Controller('sync')
+@UseGuards(JwtAuthGuard)
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
