@@ -1,50 +1,41 @@
 import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
+import Status from "./pages/Status";
 import "./App.css";
 
-function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+type Tab = "status" | "settings" | "backups";
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+function App() {
+  const [activeTab, setActiveTab] = useState<Tab>("status");
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <div className="app">
+      <nav className="tab-bar">
+        <button
+          className={`tab ${activeTab === "status" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("status")}
+        >
+          Status
+        </button>
+        <button
+          className={`tab ${activeTab === "settings" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("settings")}
+        >
+          Settings
+        </button>
+        <button
+          className={`tab ${activeTab === "backups" ? "tab-active" : ""}`}
+          onClick={() => setActiveTab("backups")}
+        >
+          Backups
+        </button>
+      </nav>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
-
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
-    </main>
+      <main className="content">
+        {activeTab === "status" && <Status />}
+        {activeTab === "settings" && <div className="page"><h2>Settings</h2><p>Coming soon...</p></div>}
+        {activeTab === "backups" && <div className="page"><h2>Backups</h2><p>Coming soon...</p></div>}
+      </main>
+    </div>
   );
 }
 
