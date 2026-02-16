@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SteelSeries Sync — Sync Your GG Config Across Machines</title>
+  <meta name="description" content="Open-source desktop app to sync SteelSeries GG configurations across multiple machines. Replace the disabled CloudSync.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-deep: #06060C;
+      --bg-primary: #0A0A12;
+      --bg-card: #10101C;
+      --bg-elevated: #16162A;
+      --accent: #FF5200;
+      --accent-glow: rgba(255, 82, 0, 0.35);
+      --accent-dim: #CC4200;
+      --steel: #6B7280;
+      --steel-light: #9CA3AF;
+      --text: #E4E4EC;
+      --text-dim: #8890A0;
+      --border: #1A1A2E;
+      --border-accent: rgba(255, 82, 0, 0.2);
+      --font-display: 'Rajdhani', sans-serif;
+      --font-mono: 'IBM Plex Mono', monospace;
+      --font-body: 'Inter', sans-serif;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg-deep);
+      color: var(--text);
+      font-family: var(--font-body);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ─── Scanline overlay ─── */
+    body::after {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0, 0, 0, 0.03) 2px,
+        rgba(0, 0, 0, 0.03) 4px
+      );
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ─── Grid background ─── */
+    .grid-bg {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255, 82, 0, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 82, 0, 0.02) 1px, transparent 1px);
+      background-size: 60px 60px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ─── Navigation ─── */
+    nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 0 2rem;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(6, 6, 12, 0.85);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.3rem;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      color: var(--text);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .nav-logo .dot {
+      width: 8px;
+      height: 8px;
+      background: var(--accent);
+      border-radius: 50%;
+      box-shadow: 0 0 12px var(--accent-glow);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--accent-glow); }
+      50% { opacity: 0.6; box-shadow: 0 0 4px var(--accent-glow); }
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      align-items: center;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--text-dim);
+      text-decoration: none;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--accent); }
+
+    .nav-cta {
+      background: var(--accent) !important;
+      color: #fff !important;
+      padding: 0.5rem 1.2rem;
+      font-family: var(--font-display) !important;
+      font-weight: 600 !important;
+      font-size: 0.85rem !important;
+      letter-spacing: 0.1em !important;
+      clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+      transition: background 0.2s;
+    }
+
+    .nav-cta:hover { background: var(--accent-dim) !important; color: #fff !important; }
+
+    /* ─── Hero ─── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 6rem 2rem 4rem;
+      z-index: 1;
+    }
+
+    .hero-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--accent);
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      margin-bottom: 1.5rem;
+      padding: 0.4rem 1rem;
+      border: 1px solid var(--border-accent);
+      background: rgba(255, 82, 0, 0.05);
+      clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+      animation: fade-in 0.8s ease-out;
+    }
+
+    .hero-badge::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+    }
+
+    h1 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(2.8rem, 5vw, 4.5rem);
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+      text-transform: uppercase;
+      animation: fade-up 0.8s ease-out 0.1s both;
+    }
+
+    h1 .highlight {
+      color: var(--accent);
+      position: relative;
+    }
+
+    .hero-desc {
+      font-size: 1.1rem;
+      color: var(--text-dim);
+      margin-top: 1.5rem;
+      max-width: 480px;
+      line-height: 1.7;
+      animation: fade-up 0.8s ease-out 0.2s both;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 1rem;
+      margin-top: 2.5rem;
+      animation: fade-up 0.8s ease-out 0.3s both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.9rem 2rem;
+      background: var(--accent);
+      color: #fff;
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+      transition: background 0.2s, transform 0.2s;
+      cursor: pointer;
+      border: none;
+    }
+
+    .btn-primary:hover { background: var(--accent-dim); transform: translateY(-1px); }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.9rem 2rem;
+      background: transparent;
+      color: var(--text);
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      text-decoration: none;
+      border: 1px solid var(--border);
+      clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+      transition: border-color 0.2s, color 0.2s;
+      cursor: pointer;
+    }
+
+    .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+    .btn-icon {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* ─── Terminal mock ─── */
+    .hero-visual {
+      position: relative;
+      animation: fade-in 1s ease-out 0.4s both;
+    }
+
+    .terminal {
+      background: var(--bg-primary);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow:
+        0 0 80px rgba(255, 82, 0, 0.06),
+        0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .terminal-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.75rem 1rem;
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .terminal-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+
+    .terminal-dot.r { background: #FF5F57; }
+    .terminal-dot.y { background: #FFBD2E; }
+    .terminal-dot.g { background: #28C840; }
+
+    .terminal-title {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+    }
+
+    .terminal-body {
+      padding: 1.5rem;
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      line-height: 1.8;
+    }
+
+    .terminal-line {
+      opacity: 0;
+      animation: type-in 0.4s ease-out forwards;
+    }
+
+    .terminal-line:nth-child(1) { animation-delay: 0.8s; }
+    .terminal-line:nth-child(2) { animation-delay: 1.2s; }
+    .terminal-line:nth-child(3) { animation-delay: 1.6s; }
+    .terminal-line:nth-child(4) { animation-delay: 2.0s; }
+    .terminal-line:nth-child(5) { animation-delay: 2.4s; }
+    .terminal-line:nth-child(6) { animation-delay: 2.8s; }
+    .terminal-line:nth-child(7) { animation-delay: 3.2s; }
+
+    .terminal-prompt { color: var(--accent); }
+    .terminal-cmd { color: var(--text); }
+    .terminal-output { color: var(--steel-light); }
+    .terminal-success { color: #28C840; }
+    .terminal-dim { color: var(--text-dim); }
+
+    @keyframes type-in {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fade-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fade-up {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Diagonal divider ─── */
+    .divider {
+      height: 80px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .divider::before {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), var(--accent), var(--border), transparent);
+    }
+
+    /* ─── Features ─── */
+    .features {
+      position: relative;
+      z-index: 1;
+      padding: 6rem 2rem;
+    }
+
+    .section-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 0.75rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .section-label::before {
+      content: '';
+      width: 24px;
+      height: 1px;
+      background: var(--accent);
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(2rem, 3.5vw, 2.8rem);
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      margin-bottom: 3.5rem;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1.5rem;
+    }
+
+    .feature-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 2rem;
+      position: relative;
+      clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+      transition: border-color 0.3s, transform 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border-accent);
+      transform: translateY(-2px);
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 3px;
+      height: 40px;
+      background: var(--accent);
+    }
+
+    .feature-icon {
+      width: 40px;
+      height: 40px;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+    }
+
+    .feature-card h3 {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.15rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+    }
+
+    .feature-card p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+
+    /* ─── How it works ─── */
+    .how-it-works {
+      position: relative;
+      z-index: 1;
+      padding: 6rem 2rem;
+      background: var(--bg-primary);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 2rem;
+      margin-top: 3.5rem;
+      position: relative;
+    }
+
+    .steps::before {
+      content: '';
+      position: absolute;
+      top: 28px;
+      left: 10%;
+      right: 10%;
+      height: 1px;
+      background: linear-gradient(90deg, var(--border), var(--accent), var(--accent), var(--border));
+      z-index: 0;
+    }
+
+    .step {
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .step-number {
+      width: 56px;
+      height: 56px;
+      margin: 0 auto 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 1.2rem;
+      color: var(--accent);
+      background: var(--bg-deep);
+      border: 2px solid var(--accent);
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+
+    .step h3 {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.05rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.5rem;
+    }
+
+    .step p {
+      color: var(--text-dim);
+      font-size: 0.85rem;
+      line-height: 1.5;
+    }
+
+    /* ─── Stats bar ─── */
+    .stats {
+      position: relative;
+      z-index: 1;
+      padding: 3rem 2rem;
+      display: flex;
+      justify-content: center;
+      gap: 4rem;
+    }
+
+    .stat {
+      text-align: center;
+    }
+
+    .stat-value {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: 2.5rem;
+      color: var(--accent);
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-dim);
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      margin-top: 0.25rem;
+    }
+
+    /* ─── CTA Section ─── */
+    .cta-section {
+      position: relative;
+      z-index: 1;
+      padding: 8rem 2rem;
+      text-align: center;
+    }
+
+    .cta-section::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 600px;
+      background: radial-gradient(circle, rgba(255, 82, 0, 0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .cta-section h2 {
+      font-family: var(--font-display);
+      font-weight: 700;
+      font-size: clamp(2.2rem, 4vw, 3.5rem);
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .cta-section p {
+      color: var(--text-dim);
+      font-size: 1.1rem;
+      margin-bottom: 2.5rem;
+      max-width: 500px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .cta-actions {
+      display: flex;
+      gap: 1rem;
+      justify-content: center;
+    }
+
+    /* ─── Footer ─── */
+    footer {
+      position: relative;
+      z-index: 1;
+      padding: 2rem;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .footer-left {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 1.5rem;
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--accent); }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; text-align: center; }
+      .hero-desc { margin-left: auto; margin-right: auto; }
+      .hero-actions { justify-content: center; }
+      .hero-visual { display: none; }
+      .features-grid { grid-template-columns: 1fr; }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+      .steps::before { display: none; }
+      .stats { gap: 2rem; flex-wrap: wrap; }
+      .nav-links { display: none; }
+      .cta-actions { flex-direction: column; align-items: center; }
+    }
+
+    /* ─── SVG icons inline ─── */
+    .icon-sync { --path: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"; }
+  </style>
+</head>
+<body>
+  <div class="grid-bg"></div>
+
+  <!-- Nav -->
+  <nav>
+    <a href="#" class="nav-logo">
+      <span class="dot"></span>
+      SteelSeries Sync
+    </a>
+    <ul class="nav-links">
+      <li><a href="#features">Features</a></li>
+      <li><a href="#how-it-works">How It Works</a></li>
+      <li><a href="https://github.com/marlinjai/steelseries-sync" target="_blank">GitHub</a></li>
+      <li><a href="https://github.com/marlinjai/steelseries-sync/releases" class="nav-cta">Download</a></li>
+    </ul>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-content">
+        <div class="hero-badge">Open Source &mdash; v0.1.0</div>
+        <h1>Sync Your<br><span class="highlight">SteelSeries</span><br>Config</h1>
+        <p class="hero-desc">
+          Your mouse, keyboard, and headset settings — synced across every machine.
+          An open-source replacement for the disabled CloudSync, built with Rust and Tauri.
+        </p>
+        <div class="hero-actions">
+          <a href="https://github.com/marlinjai/steelseries-sync/releases" class="btn-primary">
+            <svg class="btn-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Download
+          </a>
+          <a href="https://github.com/marlinjai/steelseries-sync" class="btn-secondary" target="_blank">
+            <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+            Source Code
+          </a>
+        </div>
+      </div>
+
+      <div class="hero-visual">
+        <div class="terminal">
+          <div class="terminal-bar">
+            <div class="terminal-dot r"></div>
+            <div class="terminal-dot y"></div>
+            <div class="terminal-dot g"></div>
+            <span class="terminal-title">steelseries-sync</span>
+          </div>
+          <div class="terminal-body">
+            <div class="terminal-line">
+              <span class="terminal-prompt">$ </span>
+              <span class="terminal-cmd">steelseries-sync push</span>
+            </div>
+            <div class="terminal-line">
+              <span class="terminal-output">&rarr; Reading database.db (42 MB)</span>
+            </div>
+            <div class="terminal-line">
+              <span class="terminal-output">&rarr; Reading database.db-wal (4.1 MB)</span>
+            </div>
+            <div class="terminal-line">
+              <span class="terminal-success">&check; Pushed to sync.marlinjai.com</span>
+            </div>
+            <div class="terminal-line">&nbsp;</div>
+            <div class="terminal-line">
+              <span class="terminal-prompt">$ </span>
+              <span class="terminal-cmd">steelseries-sync pull</span>
+            </div>
+            <div class="terminal-line">
+              <span class="terminal-success">&check; Pulled from marlins-mac-mini</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="divider"></div>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="section-inner">
+      <div class="section-label">Capabilities</div>
+      <h2 class="section-title">Everything You Need</h2>
+      <div class="features-grid">
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </div>
+          <h3>Auto Sync</h3>
+          <p>File watcher with 3-second debounce detects changes and pushes automatically. Polls every 30 seconds for remote updates.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15a4.5 4.5 0 004.5 4.5H18a3.75 3.75 0 001.332-7.257 3 3 0 00-3.758-3.848 5.25 5.25 0 00-10.233 2.33A4.502 4.502 0 002.25 15z"/></svg>
+          </div>
+          <h3>Self-Hosted Server</h3>
+          <p>Your config, your server. Deploy the NestJS sync server on any machine with JWT authentication and HTTPS via Cloudflare Tunnel.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+          </div>
+          <h3>Automatic Backups</h3>
+          <p>Every sync operation creates a timestamped backup. Configurable retention (default: 20). One-click restore from the app.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 9.776c.112-.017.227-.026.344-.026h15.812c.117 0 .232.009.344.026m-16.5 0a2.25 2.25 0 00-1.883 2.542l.857 6a2.25 2.25 0 002.227 1.932H19.05a2.25 2.25 0 002.227-1.932l.857-6a2.25 2.25 0 00-1.883-2.542m-16.5 0V6A2.25 2.25 0 016 3.75h3.879a1.5 1.5 0 011.06.44l2.122 2.12a1.5 1.5 0 001.06.44H18A2.25 2.25 0 0120.25 9v.776"/></svg>
+          </div>
+          <h3>Folder Sync</h3>
+          <p>No server needed. Sync through any shared folder — Dropbox, iCloud Drive, Google Drive, or a network share.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/></svg>
+          </div>
+          <h3>Safety Guards</h3>
+          <p>SQLite header validation prevents corrupt files. Detects GG process state. Creates backup before every write operation.</p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-icon">
+            <svg width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5"/></svg>
+          </div>
+          <h3>Open Source</h3>
+          <p>MIT licensed. Built with Rust and Tauri for native performance. No telemetry, no accounts required for folder sync.</p>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section class="how-it-works" id="how-it-works">
+    <div class="section-inner">
+      <div class="section-label">Process</div>
+      <h2 class="section-title">How It Works</h2>
+      <div class="steps">
+        <div class="step">
+          <div class="step-number">01</div>
+          <h3>Install</h3>
+          <p>Download the app and run it alongside SteelSeries GG on each machine.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">02</div>
+          <h3>Configure</h3>
+          <p>Choose hosted sync or folder sync. Set your API key or shared folder path.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">03</div>
+          <h3>Push</h3>
+          <p>Push your config from the machine with the settings you want to keep.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">04</div>
+          <h3>Pull</h3>
+          <p>Pull on other machines. Restart GG to apply. Auto-sync handles the rest.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Stats -->
+  <section class="stats">
+    <div class="stat">
+      <div class="stat-value">&lt;5MB</div>
+      <div class="stat-label">App Size</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">Rust</div>
+      <div class="stat-label">Backend</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">30s</div>
+      <div class="stat-label">Poll Interval</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value">MIT</div>
+      <div class="stat-label">License</div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-section">
+    <h2>Ready to <span class="highlight">Sync</span>?</h2>
+    <p>Stop manually copying database files. Get your SteelSeries config on every machine in seconds.</p>
+    <div class="cta-actions">
+      <a href="https://github.com/marlinjai/steelseries-sync/releases" class="btn-primary">
+        <svg class="btn-icon" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+        Download v0.1.0
+      </a>
+      <a href="https://github.com/marlinjai/steelseries-sync" class="btn-secondary" target="_blank">
+        <svg class="btn-icon" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+        View on GitHub
+      </a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-left">
+      &copy; 2026 SteelSeries Sync. Not affiliated with SteelSeries.
+    </div>
+    <ul class="footer-links">
+      <li><a href="https://github.com/marlinjai/steelseries-sync" target="_blank">GitHub</a></li>
+      <li><a href="https://github.com/marlinjai/steelseries-sync/releases" target="_blank">Releases</a></li>
+      <li><a href="https://github.com/marlinjai/steelseries-sync/issues" target="_blank">Issues</a></li>
+    </ul>
+  </footer>
+</body>
+</html>

@@ -22,8 +22,11 @@ importers:
         version: 19.2.4(react@19.2.4)
     devDependencies:
       '@marlinjai/clearify':
-        specifier: ^1.6.2
+        specifier: 1.6.2
         version: 1.6.2(@types/react@19.2.14)(jiti@2.6.1)(lightningcss@1.30.2)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(rollup@4.57.1)(yaml@2.8.2)
+      '@mdx-js/react':
+        specifier: ^3.1.1
+        version: 3.1.1(@types/react@19.2.14)(react@19.2.4)
       '@tauri-apps/cli':
         specifier: ^2
         version: 2.10.0

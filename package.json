@@ -16,7 +16,8 @@
     "react-dom": "^19.1.0"
   },
   "devDependencies": {
-    "@marlinjai/clearify": "^1.6.2",
+    "@marlinjai/clearify": "1.6.2",
+    "@mdx-js/react": "^3.1.1",
     "@tauri-apps/cli": "^2",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
