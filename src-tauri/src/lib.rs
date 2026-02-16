@@ -133,19 +133,18 @@ pub fn run() {
             // Set up system tray
             let _ = tray::setup_tray(app.handle());
 
-            // Spawn file watcher thread
-            let app_handle = app.handle().clone();
-            let engine = app.state::<AppState>().engine.clone();
+            // Spawn file watcher thread (outbound: local changes -> push)
+            let watcher_handle = app.handle().clone();
+            let watcher_engine = app.state::<AppState>().engine.clone();
 
             std::thread::spawn(move || {
                 let watcher = ConfigWatcher::new(watcher_config_dir, watcher_debounce);
                 let _ = watcher.watch(move |changed| {
                     log::info!("Config change detected at {:?}", changed.timestamp);
-                    let _ = app_handle.emit("sync-status", "syncing");
+                    let _ = watcher_handle.emit("sync-status", "syncing");
 
-                    let engine = engine.clone();
-                    let handle = app_handle.clone();
-                    // Use a tokio runtime to run the async push
+                    let engine = watcher_engine.clone();
+                    let handle = watcher_handle.clone();
                     let rt = tokio::runtime::Builder::new_current_thread()
                         .enable_all()
                         .build();
@@ -163,6 +162,36 @@ pub fn run() {
                         }
                     }
                 });
+            });
+
+            // Spawn inbound sync polling (remote changes -> pull every 30s)
+            let poll_handle = app.handle().clone();
+            let poll_engine = app.state::<AppState>().engine.clone();
+
+            tauri::async_runtime::spawn(async move {
+                let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
+                loop {
+                    interval.tick().await;
+                    log::info!("Polling remote for inbound sync...");
+
+                    match poll_engine.sync().await {
+                        Ok(sync_engine::SyncResult::Pulled { ref from_device }) => {
+                            log::info!("Inbound sync: pulled from {}", from_device);
+                            let _ = poll_handle.emit("sync-status", format!("Pulled from {}", from_device));
+                        }
+                        Ok(sync_engine::SyncResult::Skipped(ref reason)) => {
+                            log::debug!("Inbound sync skipped: {:?}", reason);
+                        }
+                        Ok(sync_engine::SyncResult::Pushed) => {
+                            log::info!("Inbound sync: local was newer, pushed");
+                            let _ = poll_handle.emit("sync-status", "Pushed");
+                        }
+                        Err(e) => {
+                            log::error!("Inbound sync error: {}", e);
+                            let _ = poll_handle.emit("sync-status", format!("error: {}", e));
+                        }
+                    }
+                }
             });
 
             Ok(())
