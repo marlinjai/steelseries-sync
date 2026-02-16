@@ -43,9 +43,9 @@ impl Default for AppConfig {
 
 fn default_steelseries_path() -> PathBuf {
     if cfg!(target_os = "windows") {
-        PathBuf::from(r"C:\ProgramData\SteelSeries\SteelSeries Engine 3\db")
+        PathBuf::from(r"C:\ProgramData\SteelSeries\SteelSeries GG\apps\engine\data\db")
     } else if cfg!(target_os = "macos") {
-        PathBuf::from("/Library/Application Support/SteelSeries Engine 3/db")
+        PathBuf::from("/Library/Application Support/SteelSeries GG/apps/engine/data/db")
     } else {
         PathBuf::from("/etc/steelseries-engine-3/db")
     }
@@ -66,4 +66,36 @@ fn default_sync_folder() -> PathBuf {
 
 fn hostname() -> String {
     sysinfo::System::host_name().unwrap_or_else(|| "unknown".to_string())
+}
+
+/// Path to the persisted config file.
+pub fn config_file_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("steelseries-sync")
+        .join("config.json")
+}
+
+/// Load config from disk, falling back to defaults.
+pub fn load_config() -> AppConfig {
+    let path = config_file_path();
+    if path.exists() {
+        if let Ok(data) = std::fs::read_to_string(&path) {
+            if let Ok(config) = serde_json::from_str::<AppConfig>(&data) {
+                return config;
+            }
+        }
+    }
+    AppConfig::default()
+}
+
+/// Persist config to disk.
+pub fn save_config_to_disk(config: &AppConfig) -> std::io::Result<()> {
+    let path = config_file_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let data = serde_json::to_string_pretty(config)
+        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    std::fs::write(&path, data)
 }

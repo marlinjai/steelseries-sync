@@ -1,7 +1,47 @@
-# Tauri + React + Typescript
+# SteelSeries Sync
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+Sync your SteelSeries GG configurations across multiple machines. An open-source replacement for the disabled CloudSync feature.
 
-## Recommended IDE Setup
+## Features
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- Automatic file watching with debounced push
+- Hosted sync via self-hosted API server
+- Folder-based sync (Dropbox, iCloud, etc.)
+- Last-write-wins conflict resolution with timestamped backups
+- SQLite header validation before overwriting config
+- Dark theme gaming UI
+- System tray integration
+
+## Tech Stack
+
+- **Desktop**: Tauri 2 (Rust + React TypeScript)
+- **Server**: NestJS with JWT authentication
+- **Deployment**: PM2 + Cloudflare Tunnel
+
+## Quick Start
+
+```bash
+git clone https://github.com/marlinjai/steelseries-sync.git
+cd steelseries-sync
+pnpm install
+pnpm tauri dev
+```
+
+## Server Setup
+
+```bash
+cd server
+pnpm install
+cp .env.example .env  # Edit with your JWT_SECRET and DATA_DIR
+pnpm start
+```
+
+## Configuration
+
+Config is stored at `~/Library/Application Support/steelseries-sync/config.json` (macOS).
+
+See the [Getting Started](docs/public/getting-started.md) guide for setup instructions.
+
+## License
+
+MIT

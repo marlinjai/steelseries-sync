@@ -14,12 +14,14 @@ pub struct SyncEngine {
     provider: Arc<dyn SyncProvider>,
     backup_manager: BackupManager,
     safety: Mutex<SafetyGuard>,
+    /// Suppresses the next watcher-triggered push after a pull (prevents feedback loop).
+    pull_in_progress: std::sync::atomic::AtomicBool,
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum SyncResult {
     Pushed,
-    Pulled { from_device: String },
+    Pulled { from_device: String, gg_was_running: bool },
     Skipped(SkipReason),
 }
 
@@ -44,6 +46,7 @@ impl SyncEngine {
             provider,
             backup_manager,
             safety: Mutex::new(SafetyGuard::new()),
+            pull_in_progress: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -97,11 +100,12 @@ impl SyncEngine {
     /// Pull remote config and overwrite local (with backup).
     pub async fn pull_from_remote(&self) -> Result<SyncResult, SyncError> {
         let mut safety = self.safety.lock().await;
-        match safety.is_safe_to_write(&self.config.steelseries_db_path) {
+        let gg_was_running = safety.is_gg_running();
+        match safety.is_safe_to_read(&self.config.steelseries_db_path) {
             SafetyCheck::Safe => {}
-            SafetyCheck::GGRunning => return Ok(SyncResult::Skipped(SkipReason::GGRunning)),
             SafetyCheck::FileLocked => return Ok(SyncResult::Skipped(SkipReason::FileLocked)),
             SafetyCheck::NoConfig => {} // OK to write even if no existing config
+            SafetyCheck::GGRunning => {} // unreachable from is_safe_to_read
         }
         drop(safety);
 
@@ -124,9 +128,12 @@ impl SyncEngine {
                 .create_backup(&self.config.steelseries_db_path, "pre-pull")?;
         }
 
+        // Suppress watcher auto-push for this write (prevents feedback loop)
+        self.pull_in_progress.store(true, std::sync::atomic::Ordering::SeqCst);
         self.write_local_config(&remote)?;
         Ok(SyncResult::Pulled {
             from_device: remote.meta.device_name,
+            gg_was_running,
         })
     }
 
@@ -168,6 +175,17 @@ impl SyncEngine {
             // Neither exists
             (false, None) => Ok(SyncResult::Skipped(SkipReason::NoLocalConfig)),
         }
+    }
+
+    /// Get remote metadata (for polling).
+    pub async fn remote_meta(&self) -> Result<SyncMeta, SyncError> {
+        self.provider.remote_meta().await.map_err(SyncError::from)
+    }
+
+    /// Check if a pull just happened (and reset the flag).
+    /// The watcher should call this before auto-pushing to avoid feedback loops.
+    pub fn should_suppress_push(&self) -> bool {
+        self.pull_in_progress.swap(false, std::sync::atomic::Ordering::SeqCst)
     }
 
     /// Get a reference to the backup manager (for UI).

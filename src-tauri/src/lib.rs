@@ -6,7 +6,7 @@ mod sync_engine;
 pub mod tray;
 mod watcher;
 
-use config::{AppConfig, ProviderConfig};
+use config::{AppConfig, ProviderConfig, load_config, save_config_to_disk};
 use providers::folder::FolderProvider;
 use providers::hosted::HostedProvider;
 use providers::SyncProvider;
@@ -39,7 +39,7 @@ fn build_provider(config: &AppConfig) -> Arc<dyn SyncProvider> {
 #[tauri::command]
 async fn sync_now(state: State<'_, AppState>) -> Result<String, String> {
     match state.engine.sync().await {
-        Ok(result) => Ok(format!("{:?}", result)),
+        Ok(result) => Ok(format_sync_result(&result)),
         Err(e) => Err(e.to_string()),
     }
 }
@@ -47,7 +47,7 @@ async fn sync_now(state: State<'_, AppState>) -> Result<String, String> {
 #[tauri::command]
 async fn push_now(state: State<'_, AppState>) -> Result<String, String> {
     match state.engine.push_to_remote().await {
-        Ok(result) => Ok(format!("{:?}", result)),
+        Ok(result) => Ok(format_sync_result(&result)),
         Err(e) => Err(e.to_string()),
     }
 }
@@ -55,8 +55,22 @@ async fn push_now(state: State<'_, AppState>) -> Result<String, String> {
 #[tauri::command]
 async fn pull_now(state: State<'_, AppState>) -> Result<String, String> {
     match state.engine.pull_from_remote().await {
-        Ok(result) => Ok(format!("{:?}", result)),
+        Ok(result) => Ok(format_sync_result(&result)),
         Err(e) => Err(e.to_string()),
+    }
+}
+
+fn format_sync_result(result: &sync_engine::SyncResult) -> String {
+    match result {
+        sync_engine::SyncResult::Pushed => "Pushed".to_string(),
+        sync_engine::SyncResult::Pulled { from_device, gg_was_running } => {
+            if *gg_was_running {
+                format!("Pulled from {}. Restart SteelSeries GG to apply changes.", from_device)
+            } else {
+                format!("Pulled from {}", from_device)
+            }
+        }
+        sync_engine::SyncResult::Skipped(reason) => format!("Skipped({:?})", reason),
     }
 }
 
@@ -77,11 +91,10 @@ async fn get_config(state: State<'_, AppState>) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn save_config(state: State<'_, AppState>, config_json: String) -> Result<(), String> {
-    let new_config: AppConfig =
-        serde_json::from_str(&config_json).map_err(|e| e.to_string())?;
-    let mut config = state.config.lock().await;
-    *config = new_config;
+async fn save_config(state: State<'_, AppState>, config: AppConfig) -> Result<(), String> {
+    save_config_to_disk(&config).map_err(|e| e.to_string())?;
+    let mut current = state.config.lock().await;
+    *current = config;
     Ok(())
 }
 
@@ -105,7 +118,7 @@ async fn restore_backup(
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let config = AppConfig::default();
+    let config = load_config();
     let provider = build_provider(&config);
     let engine = Arc::new(SyncEngine::new(config.clone(), provider));
 
@@ -141,8 +154,14 @@ pub fn run() {
                 let watcher = ConfigWatcher::new(watcher_config_dir, watcher_debounce);
                 let _ = watcher.watch(move |changed| {
                     log::info!("Config change detected at {:?}", changed.timestamp);
-                    let _ = watcher_handle.emit("sync-status", "syncing");
 
+                    // Skip auto-push if we just pulled (prevents feedback loop)
+                    if watcher_engine.should_suppress_push() {
+                        log::info!("Suppressing auto-push after pull");
+                        return;
+                    }
+
+                    let _ = watcher_handle.emit("sync-status", "syncing");
                     let engine = watcher_engine.clone();
                     let handle = watcher_handle.clone();
                     let rt = tokio::runtime::Builder::new_current_thread()
@@ -169,26 +188,37 @@ pub fn run() {
             let poll_engine = app.state::<AppState>().engine.clone();
 
             tauri::async_runtime::spawn(async move {
+                let mut last_seen = chrono::DateTime::<chrono::Utc>::MIN_UTC;
                 let mut interval = tokio::time::interval(std::time::Duration::from_secs(30));
                 loop {
                     interval.tick().await;
-                    log::info!("Polling remote for inbound sync...");
+                    log::info!("Polling remote for inbound changes...");
 
-                    match poll_engine.sync().await {
-                        Ok(sync_engine::SyncResult::Pulled { ref from_device }) => {
+                    // Check if remote has new data we haven't seen
+                    let meta = match poll_engine.remote_meta().await {
+                        Ok(m) => m,
+                        Err(_) => continue,
+                    };
+
+                    if meta.last_modified <= last_seen {
+                        log::debug!("Inbound poll: remote unchanged");
+                        continue;
+                    }
+
+                    // Remote has newer data — pull it
+                    match poll_engine.pull_from_remote().await {
+                        Ok(ref r @ sync_engine::SyncResult::Pulled { ref from_device, .. }) => {
                             log::info!("Inbound sync: pulled from {}", from_device);
-                            let _ = poll_handle.emit("sync-status", format!("Pulled from {}", from_device));
+                            last_seen = meta.last_modified;
+                            let _ = poll_handle.emit("sync-status", format_sync_result(r));
                         }
                         Ok(sync_engine::SyncResult::Skipped(ref reason)) => {
-                            log::debug!("Inbound sync skipped: {:?}", reason);
+                            log::debug!("Inbound poll skipped: {:?}", reason);
+                            last_seen = meta.last_modified;
                         }
-                        Ok(sync_engine::SyncResult::Pushed) => {
-                            log::info!("Inbound sync: local was newer, pushed");
-                            let _ = poll_handle.emit("sync-status", "Pushed");
-                        }
+                        Ok(_) => { last_seen = meta.last_modified; }
                         Err(e) => {
-                            log::error!("Inbound sync error: {}", e);
-                            let _ = poll_handle.emit("sync-status", format!("error: {}", e));
+                            log::error!("Inbound poll error: {}", e);
                         }
                     }
                 }

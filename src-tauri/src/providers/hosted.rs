@@ -1,6 +1,7 @@
 //! Hosted API sync provider — communicates with the Mac Mini sync server.
 
 use super::{ConfigSnapshot, ProviderError, ProviderResult, SyncMeta, SyncProvider};
+use base64::Engine;
 use reqwest::Client;
 
 pub struct HostedProvider {
@@ -18,9 +19,9 @@ struct MetaResponse {
 
 #[derive(serde::Deserialize)]
 struct PullResponse {
-    db: Vec<u8>,
-    db_shm: Option<Vec<u8>>,
-    db_wal: Option<Vec<u8>>,
+    db: String,
+    db_shm: Option<String>,
+    db_wal: Option<String>,
     last_modified: chrono::DateTime<chrono::Utc>,
     device_name: String,
 }
@@ -77,10 +78,22 @@ impl SyncProvider for HostedProvider {
         }
 
         let body: PullResponse = resp.json().await?;
+        let b64 = base64::engine::general_purpose::STANDARD;
+        let db = b64.decode(&body.db).map_err(|e| ProviderError::Other(format!("base64 decode error: {}", e)))?;
+        let db_shm = body.db_shm
+            .filter(|s| !s.is_empty())
+            .map(|s| b64.decode(&s))
+            .transpose()
+            .map_err(|e| ProviderError::Other(format!("base64 decode error: {}", e)))?;
+        let db_wal = body.db_wal
+            .filter(|s| !s.is_empty())
+            .map(|s| b64.decode(&s))
+            .transpose()
+            .map_err(|e| ProviderError::Other(format!("base64 decode error: {}", e)))?;
         Ok(ConfigSnapshot {
-            db: body.db,
-            db_shm: if body.db_shm.as_ref().map(|v| v.is_empty()).unwrap_or(true) { None } else { body.db_shm },
-            db_wal: if body.db_wal.as_ref().map(|v| v.is_empty()).unwrap_or(true) { None } else { body.db_wal },
+            db,
+            db_shm,
+            db_wal,
             meta: SyncMeta {
                 last_modified: body.last_modified,
                 device_name: body.device_name,
