@@ -1,5 +1,7 @@
 # SteelSeries Sync
 
+> **[steelseries-sync.pages.dev](https://steelseries-sync.pages.dev)** | [Download DMG](https://github.com/marlinjai/steelseries-sync/releases/download/v0.1.0/steelseries-sync_0.1.0_aarch64.dmg) | [Documentation](https://steelseries-sync.pages.dev/docs/)
+
 Sync your SteelSeries GG configurations across multiple machines. An open-source replacement for the disabled CloudSync feature.
 
 ## Features
