@@ -530,27 +530,30 @@
       color: var(--accent);
       background: var(--bg-deep);
       position: relative;
+      clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
     }
 
     .step-number::before {
       content: '';
       position: absolute;
       inset: 0;
-      background: var(--bg-deep);
-      border: 2px solid var(--accent);
-      border-radius: 12px;
-      transform: rotate(45deg);
-      z-index: -1;
+      background: var(--accent);
+      clip-path: polygon(
+        50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%,
+        50% 0%,
+        50% 2px, 9% 26.5%, 9% 73.5%, 50% calc(100% - 2px), 91% 73.5%, 91% 26.5%, 50% 2px
+      );
+      z-index: 1;
     }
 
     .step-number::after {
       content: '';
       position: absolute;
-      inset: 4px;
-      background: var(--bg-deep);
-      border-radius: 8px;
-      transform: rotate(45deg);
-      z-index: -1;
+      inset: 0;
+      background: var(--accent);
+      opacity: 0.08;
+      clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
+      z-index: 0;
     }
 
     .step h3 {
