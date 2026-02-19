@@ -571,6 +571,89 @@
       line-height: 1.5;
     }
 
+    /* ─── Install note ─── */
+    .install-note {
+      position: relative;
+      z-index: 1;
+      padding: 4rem 2rem;
+      background: var(--bg-card);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .install-note-inner {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+
+    .install-note-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .install-note-label svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .install-note h3 {
+      font-family: var(--font-display);
+      font-weight: 600;
+      font-size: 1.3rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      margin-bottom: 1rem;
+    }
+
+    .install-note p {
+      color: var(--text-dim);
+      font-size: 0.9rem;
+      line-height: 1.7;
+      margin-bottom: 1.25rem;
+    }
+
+    .install-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+
+    .install-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.75rem;
+      font-size: 0.88rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .install-step-num {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--accent);
+      background: rgba(255, 82, 0, 0.1);
+      padding: 0.15rem 0.5rem;
+      border-radius: 2px;
+      flex-shrink: 0;
+      margin-top: 0.15rem;
+    }
+
+    .install-step code {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      background: rgba(255, 82, 0, 0.08);
+      color: var(--accent);
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+    }
+
     /* ─── Stats bar ─── */
     .stats {
       position: relative;
@@ -861,6 +944,37 @@
           <p>Pull on other machines. Restart GG to apply. Auto-sync handles the rest.</p>
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- Install note -->
+  <section class="install-note">
+    <div class="install-note-inner">
+      <div class="install-note-label">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/></svg>
+        macOS Installation
+      </div>
+      <h3>First Launch on macOS</h3>
+      <p>This app is open-source and not signed with an Apple Developer certificate. macOS will block it the first time you open it. Here's how to allow it:</p>
+      <div class="install-steps">
+        <div class="install-step">
+          <span class="install-step-num">1</span>
+          <span>Open the DMG and drag <strong>steelseries-sync</strong> to Applications as usual.</span>
+        </div>
+        <div class="install-step">
+          <span class="install-step-num">2</span>
+          <span>Try opening the app &mdash; macOS will show a warning. Close the dialog.</span>
+        </div>
+        <div class="install-step">
+          <span class="install-step-num">3</span>
+          <span>Go to <strong>System Settings &rarr; Privacy &amp; Security</strong>, scroll down to find <em>"steelseries-sync was blocked"</em>, and click <strong>Open Anyway</strong>.</span>
+        </div>
+        <div class="install-step">
+          <span class="install-step-num">alt</span>
+          <span>Or run in Terminal: <code>xattr -cr /Applications/steelseries-sync.app</code></span>
+        </div>
+      </div>
+      <p style="margin-top: 1.25rem; color: var(--steel); font-size: 0.8rem;">You only need to do this once. After the first launch, macOS will remember your choice.</p>
     </div>
   </section>
 

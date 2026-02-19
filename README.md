@@ -20,7 +20,16 @@ Sync your SteelSeries GG configurations across multiple machines. An open-source
 - **Server**: NestJS with JWT authentication
 - **Deployment**: PM2 + Cloudflare Tunnel
 
-## Quick Start
+## Install
+
+1. Download the [latest DMG](https://github.com/marlinjai/steelseries-sync/releases/download/v0.1.0/steelseries-sync_0.1.0_aarch64.dmg)
+2. Open the DMG and drag the app to Applications
+3. On first launch, macOS will block it (the app is unsigned). To allow it:
+   - Go to **System Settings → Privacy & Security** and click **Open Anyway**
+   - Or run: `xattr -cr /Applications/steelseries-sync.app`
+4. You only need to do this once
+
+## Quick Start (Development)
 
 ```bash
 git clone https://github.com/marlinjai/steelseries-sync.git
