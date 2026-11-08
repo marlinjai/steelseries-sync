@@ -12,6 +12,11 @@ import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from '../auth/auth.guard';
 import { SyncService } from './sync.service';
 
+// Set by JwtStrategy.validate once the bearer token is verified.
+interface AuthedRequest {
+  user?: { sub?: string; email?: string };
+}
+
 @Controller('sync')
 @UseGuards(JwtAuthGuard)
 export class SyncController {
@@ -33,7 +38,7 @@ export class SyncController {
       db_wal?: Express.Multer.File[];
     },
     @Body('device_name') deviceName: string,
-    @Req() req: any,
+    @Req() req: AuthedRequest,
   ) {
     const userId = req.user?.sub || 'anonymous';
     await this.syncService.upload(userId, files, deviceName || 'unknown');
@@ -41,13 +46,13 @@ export class SyncController {
   }
 
   @Get()
-  async download(@Req() req: any) {
+  download(@Req() req: AuthedRequest) {
     const userId = req.user?.sub || 'anonymous';
     return this.syncService.download(userId);
   }
 
   @Get('meta')
-  async meta(@Req() req: any) {
+  meta(@Req() req: AuthedRequest) {
     const userId = req.user?.sub || 'anonymous';
     return this.syncService.getMeta(userId);
   }

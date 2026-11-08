@@ -8,4 +8,4 @@ async function bootstrap() {
   await app.listen(port);
   console.log(`Sync server running on port ${port}`);
 }
-bootstrap();
+void bootstrap();
