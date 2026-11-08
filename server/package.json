@@ -62,7 +62,8 @@
     "typescript-eslint": "^8.20.0"
   },
   "overrides": {
-    "multer": "$multer"
+    "multer": "$multer",
+    "minimatch@>=7.0.0 <11.0.1": "^11.0.5"
   },
   "jest": {
     "moduleFileExtensions": [
