@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import * as fs from 'fs';
+import { promises as fsp } from 'fs';
 import * as path from 'path';
 
 export interface SyncMeta {
@@ -37,19 +38,22 @@ export class SyncService {
     deviceName: string,
   ): Promise<void> {
     const userDir = this.getUserDir(userId);
-    fs.mkdirSync(userDir, { recursive: true });
+    await fsp.mkdir(userDir, { recursive: true });
 
     if (files.db && files.db[0]) {
-      fs.writeFileSync(path.join(userDir, 'database.db'), files.db[0].buffer);
+      await fsp.writeFile(
+        path.join(userDir, 'database.db'),
+        files.db[0].buffer,
+      );
     }
     if (files.db_shm && files.db_shm[0]) {
-      fs.writeFileSync(
+      await fsp.writeFile(
         path.join(userDir, 'database.db-shm'),
         files.db_shm[0].buffer,
       );
     }
     if (files.db_wal && files.db_wal[0]) {
-      fs.writeFileSync(
+      await fsp.writeFile(
         path.join(userDir, 'database.db-wal'),
         files.db_wal[0].buffer,
       );
@@ -59,7 +63,7 @@ export class SyncService {
       last_modified: new Date().toISOString(),
       device_name: deviceName,
     };
-    fs.writeFileSync(
+    await fsp.writeFile(
       path.join(userDir, 'sync_meta.json'),
       JSON.stringify(meta),
     );
@@ -73,17 +77,17 @@ export class SyncService {
       throw new NotFoundException('No config found for this user');
     }
 
-    const meta = this.readMeta(userId);
-    const db = fs.readFileSync(dbPath).toString('base64');
+    const meta = await this.readMeta(userId);
+    const db = (await fsp.readFile(dbPath)).toString('base64');
 
     const shmPath = path.join(userDir, 'database.db-shm');
     const walPath = path.join(userDir, 'database.db-wal');
 
     const db_shm = fs.existsSync(shmPath)
-      ? fs.readFileSync(shmPath).toString('base64')
+      ? (await fsp.readFile(shmPath)).toString('base64')
       : null;
     const db_wal = fs.existsSync(walPath)
-      ? fs.readFileSync(walPath).toString('base64')
+      ? (await fsp.readFile(walPath)).toString('base64')
       : null;
 
     return {
@@ -95,11 +99,11 @@ export class SyncService {
     };
   }
 
-  async getMeta(userId: string): Promise<SyncMeta> {
+  getMeta(userId: string): Promise<SyncMeta> {
     return this.readMeta(userId);
   }
 
-  private readMeta(userId: string): SyncMeta {
+  private async readMeta(userId: string): Promise<SyncMeta> {
     const userDir = this.getUserDir(userId);
     const metaPath = path.join(userDir, 'sync_meta.json');
 
@@ -107,6 +111,6 @@ export class SyncService {
       throw new NotFoundException('No config found for this user');
     }
 
-    return JSON.parse(fs.readFileSync(metaPath, 'utf-8')) as SyncMeta;
+    return JSON.parse(await fsp.readFile(metaPath, 'utf-8')) as SyncMeta;
   }
 }

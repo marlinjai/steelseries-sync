@@ -5,10 +5,10 @@ import { NotFoundException } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { Readable } from 'stream';
 
 describe('SyncController', () => {
   let controller: SyncController;
-  let service: SyncService;
   let tmpDir: string;
 
   beforeEach(async () => {
@@ -21,7 +21,6 @@ describe('SyncController', () => {
     }).compile();
 
     controller = module.get<SyncController>(SyncController);
-    service = module.get<SyncService>(SyncService);
   });
 
   afterEach(() => {
@@ -42,7 +41,7 @@ describe('SyncController', () => {
       mimetype: 'application/octet-stream',
       buffer: Buffer.from(content),
       size: content.length,
-      stream: null as any,
+      stream: Readable.from([]),
       destination: '',
       filename: '',
       path: '',
@@ -106,7 +105,7 @@ describe('SyncController', () => {
     expect(result.device_name).toBe('work-laptop');
     expect(result.last_modified).toBeDefined();
     // Should not contain file data
-    expect((result as any).db).toBeUndefined();
+    expect('db' in result).toBe(false);
   });
 
   it('GET /sync - returns 404 when no config exists', async () => {
